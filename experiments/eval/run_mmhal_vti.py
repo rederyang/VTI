@@ -3,6 +3,8 @@ import torch
 import os
 import json
 from tqdm import tqdm
+import requests
+from io import BytesIO
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
