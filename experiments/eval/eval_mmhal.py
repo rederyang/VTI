@@ -68,10 +68,12 @@ if __name__ == '__main__':
     parser.add_argument('--response', type=str, default='responses/idefics_80b.json', help='response file containing images, questions, and model responses')
     parser.add_argument('--response_original', type=str, default='')
     parser.add_argument('--evaluation', type=str, default=None, help='GPT-4 evaluation results to be saved')
+    parser.add_argument('--api-base', type=str, required=True)
     parser.add_argument('--api-key', type=str, required=True)
     parser.add_argument('--gpt-model', type=str, default='gpt-4o-mini')
     args = parser.parse_args()
 
+    openai.base_url = args.api_base
     openai.api_key = args.api_key
 
     # load json file
