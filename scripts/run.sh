@@ -9,6 +9,8 @@ source $PROJECT_DIR/scripts/load_api.sh
 # export HF_ENDPOINT=https://hf-mirror.com
 
 mkdir -p $RUN_DIR
+touch $RUN_DIR/run_log.txt
+touch $RUN_DIR/eval_log.txt
 
 python -u $PROJECT_DIR/experiments/eval/run_mmhal_vti.py \
     --alpha_image 0.9 \
