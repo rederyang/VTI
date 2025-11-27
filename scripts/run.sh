@@ -1,7 +1,7 @@
-RUN_DIR=$PROJECT_DIR/runs/d5t2_rerun_2
+export DATA_DIR=/scratch/eecs542f25_class_root/eecs542f25_class/kunda/MSCOCO
+export PROJECT_DIR=/home/kunda/VTI
 
-export DATA_DIR=/root/autodl-tmp/MSCOCO
-export PROJECT_DIR=/root/VTI
+RUN_DIR=$PROJECT_DIR/runs/d5t2
 
 source $PROJECT_DIR/scripts/load_api.sh
 
