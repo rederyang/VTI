@@ -1,4 +1,5 @@
 import argparse
+import time
 import torch
 import os
 import json
@@ -60,23 +61,43 @@ def eval_model(args):
     vision_token_end = vision_token_start + model.get_vision_tower().num_patches
 
     if args.alpha_image != 0:
-        vti_vision, _ = obtain_visual_vti(
-            model, input_images, rank=1
-            )
+        if os.path.exists(args.visual_direction_path):
+            print(f"Loading visual direction from {args.visual_direction_path}")
+            visual_direction = torch.load(args.visual_direction_path)
+        else:
+            print(f"Computing visual direction")
+            time_start = time.time()
+            vti_vision, _ = obtain_visual_vti(
+                model, input_images, rank=1
+                )  # shape: (n_layers, n_tokens, feat_dim)
+            time_end = time.time()
+            print(f"Time taken: {time_end - time_start} seconds")
+            visual_direction = vti_vision[1:]  # skip the input token embeddings
+            print(f"Saving visual direction to {args.visual_direction_path}")
+            torch.save(visual_direction, args.visual_direction_path)
 
-        visual_direction = vti_vision[1:]
-
-    if args.alpha_image != 0:
+        print("visual_direction shape: ", visual_direction.shape)
+        print(f"Adding visual direction to the model")
         add_vti_layers(model.model.vision_tower.vision_tower.vision_model, torch.stack([visual_direction],dim=1).cuda(), alpha = [args.alpha_image])
     
     if args.alpha_text != 0:
+        if os.path.exists(args.textual_direction_path):
+            print(f"Loading textual direction from {args.textual_direction_path}")
+            textual_direction = torch.load(args.textual_direction_path)
+        else:
+            print(f"Computing textual direction")
+            time_start = time.time()
+            vti_text, _ = obtain_textual_vti(
+                model, input_ids, input_images, rank=1
+                )
+            time_end = time.time()
+            print(f"Time taken: {time_end - time_start} seconds")
+            textual_direction = vti_text[1:]
+            print(f"Saving textual direction to {args.textual_direction_path}")
+            torch.save(textual_direction, args.textual_direction_path)
 
-        vti_text, _ = obtain_textual_vti(
-            model, input_ids, input_images, rank=1
-            )
-        textual_direction = vti_text[1:]
-
-    if args.alpha_text != 0:
+        print("textual_direction shape: ", textual_direction.shape)
+        print(f"Adding textual direction to the model")
         add_vti_layers(model, torch.stack([textual_direction],dim=1).cuda(), alpha = [args.alpha_text])
 
     torch.cuda.empty_cache()
@@ -90,7 +111,7 @@ def eval_model(args):
 
 
     ans_file = open(answers_file, "w")
-    for img_id in range(len(dataset)):
+    for img_id in tqdm(range(len(dataset))):
         image_path = dataset[img_id]['image_path']
         raw_image = load_image(image_path)
         qs = dataset[img_id]['question']
@@ -143,8 +164,13 @@ def eval_model(args):
         ans_file.write(json.dumps(img_save) + "\n")
         ans_file.flush()
     ans_file.close()
-    remove_vti_layers(model)
-    remove_vti_layers(model.model.vision_tower.vision_tower.vision_model)
+
+    if args.alpha_image != 0:
+        remove_vti_layers(model.model.vision_tower.vision_tower.vision_model)
+    if args.alpha_text != 0:
+        remove_vti_layers(model)
+
+    print(f"Finished evaluation, results saved to {answers_file}")
 
     
 if __name__ == "__main__":
@@ -164,6 +190,9 @@ if __name__ == "__main__":
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--mask_ratio", type=float, default=0.99)
     parser.add_argument("--num_trials", type=int, default=50)
+
+    parser.add_argument("--visual_direction_path", type=str, required=True)
+    parser.add_argument("--textual_direction_path", type=str, required=True)
     
     args = parser.parse_args()
     set_seed(args.seed)

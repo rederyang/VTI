@@ -22,6 +22,8 @@ python -u $PROJECT_DIR/experiments/eval/run_mmhal_vti.py \
     --num_demos 5 \
     --mask_ratio 0.99 \
     --num_trials 2 \
+    --visual_direction_path $RUN_DIR/visual_direction.pt \
+    --textual_direction_path $RUN_DIR/textual_direction.pt \
     2>&1 | tee $RUN_DIR/run_log.txt
 
 python -u $PROJECT_DIR/experiments/eval/eval_mmhal.py \
