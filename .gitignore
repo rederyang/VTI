@@ -158,3 +158,8 @@ cython_debug/
 
 # MacOS
 .DS_Store
+
+
+# Runs
+scripts/load_api.sh
+runs/*/*.pt*
