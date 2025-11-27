@@ -180,6 +180,7 @@ def get_demos(args, image_processor, model, tokenizer, patch_size = 14, file_pat
     
     return inputs_images, input_ids
 
+# Textual VTI 相关
 
 def get_hiddenstates(model, inputs, image_tensor):
         h_all = []
@@ -228,6 +229,8 @@ def obtain_textual_vti(model, inputs, image_tensor, rank=1):
     direction = (pca.components_.sum(dim=1,keepdim=True) + pca.mean_).mean(0).view(hidden_states[demonstration_id][0].size(0), hidden_states[demonstration_id][0].size(1))#h_pca.mean(0).view(hidden_states[demonstration_id][0].size(0), hidden_states[demonstration_id][0].size(1))
     reading_direction = fit_data.mean(0).view(hidden_states[demonstration_id][0].size(0), hidden_states[demonstration_id][0].size(1))
     return direction, reading_direction
+
+# Visual VTI 相关
 
 def average_tuples(tuples: List[Tuple[torch.Tensor]]) -> Tuple[torch.Tensor]:
     # Check that the input list is not empty

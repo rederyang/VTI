@@ -10,7 +10,7 @@ class VTILayer(nn.Module):
 
     def __init__(self, vti_direction, lam):
         super(VTILayer, self).__init__()
-        self.vti_direction = vti_direction
+        self.vti_direction = vti_direction  # shape: (num_directions (usually 1), n_tokens, feat_dim)
         self.lam = lam
 
     def forward(self, x):
@@ -116,6 +116,7 @@ def add_vti_layers(model: PreTrainedModel, vti_drections: Tensor, alpha: list):
     layers = get_layers(model)
     mlp_keywords = ["mlp", "feedforward", "ffn"]
     assert len(vti_drections) == len(layers)
+    # vti_drections: (n_layers, 1, n_tokens, feat_dim)
     for i, layer in enumerate(layers):
         original_mlp = find_module(layer, mlp_keywords)
         layer.mlp = nn.Sequential(original_mlp, VTILayer(vti_drections[i], alpha)) 
