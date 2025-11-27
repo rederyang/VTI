@@ -1,7 +1,6 @@
 import argparse
 import time
 import torch
-import os
 import json
 from tqdm import tqdm
 import requests
@@ -14,8 +13,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from llava.constants import IMAGE_TOKEN_INDEX, DEFAULT_IMAGE_TOKEN, DEFAULT_IM_START_TOKEN, DEFAULT_IM_END_TOKEN
 from llava.conversation import conv_templates, SeparatorStyle
 from llava.model.builder import load_pretrained_model
-from llava.utils import disable_torch_init
-from llava.mm_utils import tokenizer_image_token, get_model_name_from_path, KeywordsStoppingCriteria
+from llava.mm_utils import tokenizer_image_token, get_model_name_from_path
 from PIL import Image
 from transformers import set_seed
 
@@ -34,31 +32,17 @@ def load_image(image_file):
 
 def eval_model(args):
     # Model
-    # disable_torch_init()
     model_path = os.path.expanduser(args.model_path)
     model_name = get_model_name_from_path(model_path)
     tokenizer, model, image_processor, context_len = load_pretrained_model(model_path, args.model_base, model_name)
 
+    # Get demo images
     input_images, input_ids = get_demos(args, image_processor, model, tokenizer)
 
-    torch.cuda.empty_cache()
-
+    # Get 'good' and 'bad' latent states and calculate the steering vectors
     print('Obtaining direction\n')
 
-    qs = ''
-    cur_prompt = qs
-    if model.config.mm_use_im_start_end:
-        qs = DEFAULT_IM_START_TOKEN + DEFAULT_IMAGE_TOKEN + DEFAULT_IM_END_TOKEN + '\n' + qs
-    else:
-        qs = DEFAULT_IMAGE_TOKEN + '\n' + qs
-
-    conv = conv_templates[args.conv_mode].copy()
-    conv.append_message(conv.roles[0], qs)
-    conv.append_message(conv.roles[1], None)
-    prompt = conv.get_prompt()
-
-    vision_token_start = len(tokenizer(prompt.split("<image>")[0], return_tensors='pt')["input_ids"][0])
-    vision_token_end = vision_token_start + model.get_vision_tower().num_patches
+    torch.cuda.empty_cache()
 
     if args.alpha_image != 0:
         if os.path.exists(args.visual_direction_path):
@@ -100,22 +84,29 @@ def eval_model(args):
         print(f"Adding textual direction to the model")
         add_vti_layers(model, torch.stack([textual_direction],dim=1).cuda(), alpha = [args.alpha_text])
 
+
+    # Run MMHal benchmark
+    print(f"Running MMHal benchmark\n")
+
     torch.cuda.empty_cache()
 
-    
+    # Create answers file
     answers_file = os.path.expanduser(args.answers_file)
     os.makedirs(os.path.dirname(answers_file), exist_ok=True)
 
-
+    # Load dataset
     dataset = load_dataset("Shengcao1006/MMHal-Bench")['test']
-
 
     ans_file = open(answers_file, "w")
     for img_id in tqdm(range(len(dataset))):
+        # prepare image
         image_path = dataset[img_id]['image_path']
         raw_image = load_image(image_path)
+
+        image_tensor = image_processor.preprocess(raw_image, return_tensors='pt')['pixel_values'][0]
+
+        # prepare text
         qs = dataset[img_id]['question']
-        cur_prompt = qs
         if model.config.mm_use_im_start_end:
             qs = DEFAULT_IM_START_TOKEN + DEFAULT_IMAGE_TOKEN + DEFAULT_IM_END_TOKEN + '\n' + qs
         else:
@@ -128,14 +119,6 @@ def eval_model(args):
 
         input_ids = tokenizer_image_token(prompt, tokenizer, IMAGE_TOKEN_INDEX, return_tensors='pt').unsqueeze(0).cuda()
 
-        image_tensor = image_processor.preprocess(raw_image, return_tensors='pt')['pixel_values'][0]
-
-        stop_str = conv.sep if conv.sep_style != SeparatorStyle.TWO else conv.sep2
-        keywords = [stop_str]
-        stopping_criteria = KeywordsStoppingCriteria(keywords, tokenizer, input_ids)
-
-        img_save = {}
-
         with torch.inference_mode():
             output_ids = model.generate(
                 input_ids,
@@ -147,11 +130,12 @@ def eval_model(args):
 
         outputs = tokenizer.batch_decode(output_ids[:, :], skip_special_tokens=True)[0]
         outputs = outputs.strip()
+        stop_str = conv.sep if conv.sep_style != SeparatorStyle.TWO else conv.sep2
         if outputs.endswith(stop_str):
             outputs = outputs[:-len(stop_str)]
         outputs = outputs.strip()
 
-
+        img_save = {}
         img_save["question_type"] = dataset[img_id]["question_type"]
         img_save["question_topic"] = dataset[img_id]["question_topic"]
         img_save["image_id"] = dataset[img_id]["image_id"]
@@ -172,7 +156,7 @@ def eval_model(args):
 
     print(f"Finished evaluation, results saved to {answers_file}")
 
-    
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--model-path", type=str, default="liuhaotian/llava-v1.5-7b")
