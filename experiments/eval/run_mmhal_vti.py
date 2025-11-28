@@ -84,6 +84,21 @@ def eval_model(args):
         print(f"Adding textual direction to the model")
         add_vti_layers(model, torch.stack([textual_direction],dim=1).cuda(), alpha = [args.alpha_text])
 
+    # Register competitor intervention hook
+    competitor_hook = None
+    if args.competitor:
+        from vti_utils.competitors import CompetitorIntervention
+        
+        kwargs = {}
+        if args.competitor == 'clipping':
+            kwargs = {'percentile': args.clip_percentile}
+        elif args.competitor == 'smoothing':
+            kwargs = {'kernel_size': args.smooth_kernel, 'grid_size': 24}
+        elif args.competitor == 'quantization':
+            kwargs = {'scale': args.quant_scale}
+        
+        competitor_hook = CompetitorIntervention(args.competitor, **kwargs)
+        competitor_hook.register(model.model.vision_tower)
 
     # Run MMHal benchmark
     print(f"Running MMHal benchmark\n")
@@ -149,10 +164,13 @@ def eval_model(args):
         ans_file.flush()
     ans_file.close()
 
+    # Cleanup interventions
     if args.alpha_image != 0:
         remove_vti_layers(model.model.vision_tower.vision_tower.vision_model)
     if args.alpha_text != 0:
         remove_vti_layers(model)
+    if competitor_hook:
+        competitor_hook.remove()
 
     print(f"Finished evaluation, results saved to {answers_file}")
 
@@ -177,6 +195,17 @@ if __name__ == "__main__":
 
     parser.add_argument("--visual_direction_path", type=str, required=True)
     parser.add_argument("--textual_direction_path", type=str, required=True)
+
+    # Competitor intervention arguments
+    parser.add_argument("--competitor", type=str, default=None,
+                        choices=['clipping', 'smoothing', 'quantization'],
+                        help="Competitor robustness method to apply on vision features")
+    parser.add_argument("--clip_percentile", type=float, default=95,
+                        help="Percentile for dynamic clipping (e.g., 95 means clip to 5-95%%)")
+    parser.add_argument("--smooth_kernel", type=int, default=3,
+                        help="Kernel size for spatial smoothing (odd number)")
+    parser.add_argument("--quant_scale", type=float, default=10.0,
+                        help="Scale factor for feature quantization")
     
     args = parser.parse_args()
     set_seed(args.seed)
