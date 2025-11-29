@@ -3,6 +3,7 @@ import argparse
 import json
 from collections import defaultdict
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 template = '''Please act as an impartial and objective judge and evaluate the quality of the response provided by a Large Multimodal Model (LMM) to the user question. Your evaluation should be mainly based on whether the response is informative, and whether the response contains any hallucination. Hallucination, in this context, refers to a situation where the LMM generates a response that includes information not present or implied in the image or previous conversation. A hallucination could be a false claim about an object, action, emotion, or any other detail that is not grounded in the image.
 For clarity, consider these examples:
@@ -94,6 +95,8 @@ if __name__ == '__main__':
 
     # ask GPT-4 to evaluate
     responses = []
+    executor = ThreadPoolExecutor(max_workers=10)
+    futures = []
     for i, record in enumerate(records):
         image_content = ', '.join(record['image_content'])
         input_text = template.format(image_content, record['question'], record['gt_answer'], record['model_answer'])
@@ -158,26 +161,26 @@ if __name__ == '__main__':
                     print(q_type, record['image_id'],  'GT: ', record['gt_answer'],  'GT ours :', record['model_answer'], 'GT original :',  records_original[i]['model_answer'])
             
         else:
+            def call_gpt(txt, model):
+                resp = None
+                while resp is None:
+                    try:
+                        resp = openai.chat.completions.create(
+                            model=model,
+                            messages=[{"role": "user", "content": txt}],
+                            temperature=0.0,
+                        )
+                        print('finished', flush=True)
+                    except Exception as e:
+                        print(e)
+                        print('retrying...')
+                        time.sleep(10)
+                return resp.choices[0].message.content
+            futures.append(executor.submit(call_gpt, input_text, args.gpt_model))
 
-            response = None
-            while response is None:
-                try:
-                    response = openai.chat.completions.create(
-                        model=args.gpt_model,
-                        messages=[
-                            {"role": "user", "content": input_text}
-                        ],
-                        temperature=0.0,
-                    )
-                except Exception as e:
-                    print(e)
-                    print('retrying...')
-                    time.sleep(10)
-                    continue
-            
-            # print(i, response['choices'][0]['message']['content'], flush=True)
-            responses.append(response.choices[0].message.content)
-            time.sleep(1)
+    # collect parallel results
+    responses = [f.result() for f in futures]
+    executor.shutdown()
 
     # save responses
     if args.evaluation is not None:
