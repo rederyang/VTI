@@ -1,0 +1,109 @@
+current iter: 0
+current iter: 10
+current iter: 20
+current iter: 30
+current iter: 40
+current iter: 50
+current iter: 60
+current iter: 70
+current iter: 80
+current iter: 90
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+finished
+Average score: 1.09375
+Hallucination rate: 0.84375
+Average score for each question type: 0.67,1.75,2.0,0.5,1.25,1.25,0.0,1.33

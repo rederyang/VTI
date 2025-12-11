@@ -32,6 +32,100 @@ class VTILayer(nn.Module):
             return x
 
 
+class HeadWiseAttentionVTI:
+    """
+    Hook-based per-head attention VTI intervention.
+    Non-invasive: registers forward hooks without modifying model structure.
+    
+    Args:
+        vti_directions: tensor of shape (n_layers, n_heads, n_tokens, head_dim)
+        lam: intervention strength
+        intervention_layers: list of layer indices to intervene, or None for all layers
+    """
+    
+    def __init__(self, vti_directions, lam=0.1, intervention_layers=None):
+        self.vti_directions = vti_directions  # (n_layers, n_heads, n_tokens, head_dim)
+        self.lam = lam
+        self.intervention_layers = intervention_layers
+        self.handles = []
+        self.n_layers = vti_directions.shape[0]
+        self.n_heads = vti_directions.shape[1]
+        self.head_dim = vti_directions.shape[3]
+    
+    def _make_hook(self, layer_idx):
+        """Create a hook function for a specific layer."""
+        direction = self.vti_directions[layer_idx]  # (n_heads, n_tokens, head_dim)
+        
+        def hook_fn(module, args, kwargs, output):
+            # CLIPAttention output: (attn_output, attn_weights) or just attn_output
+            if isinstance(output, tuple):
+                attn_output = output[0]
+                rest = output[1:]
+            else:
+                attn_output = output
+                rest = None
+            
+            # attn_output: (batch, seq_len, hidden_dim)
+            batch, seq_len, hidden_dim = attn_output.shape
+            
+            # Reshape to per-head: (batch, seq_len, n_heads, head_dim)
+            x = attn_output.view(batch, seq_len, self.n_heads, self.head_dim)
+            
+            # Make sure direction is the same length as the sequence
+            assert direction.shape[1] == seq_len, f"Direction shape: {direction.shape}, seq_len: {seq_len}"
+            
+            # Move direction to same device and prepare shape
+            # direction: (n_heads, n_tokens, head_dim) -> (1, seq_len, n_heads, head_dim)
+            dir_slice = direction.to(attn_output.device).transpose(0, 1).unsqueeze(0)
+            
+            # Apply per-head intervention
+            # x: (batch, seq_len, n_heads, head_dim)
+            # dir_slice: (1, seq_len, n_heads, head_dim)
+            norm = torch.norm(x.float(), dim=-1, keepdim=True)
+            dir_normalized = F.normalize(dir_slice.float(), dim=-1)
+            x_normalized = F.normalize(x.float(), dim=-1)
+            
+            x_new = F.normalize(x_normalized + self.lam * dir_normalized, dim=-1) * norm
+            
+            # Reshape back: (batch, seq_len, hidden_dim)
+            attn_output_new = x_new.view(batch, seq_len, hidden_dim).to(attn_output.dtype)
+            
+            if rest is not None:
+                return (attn_output_new,) + rest
+            else:
+                return attn_output_new
+        
+        return hook_fn
+    
+    def register(self, model):
+        """Register hooks on vision encoder attention layers."""
+        try:
+            vision_model = model.model.vision_tower.vision_tower.vision_model
+        except:
+            vision_model = model.vision_model
+        
+        encoder_layers = vision_model.encoder.layers
+        
+        layers_to_hook = self.intervention_layers if self.intervention_layers is not None else range(len(encoder_layers))
+        
+        for layer_idx in layers_to_hook:
+            if layer_idx < len(encoder_layers):
+                hook = encoder_layers[layer_idx].self_attn.register_forward_hook(
+                    self._make_hook(layer_idx), 
+                    with_kwargs=True
+                )
+                self.handles.append(hook)
+        
+        print(f"Registered HeadWiseAttentionVTI on {len(self.handles)} layers (lam={self.lam})")
+    
+    def remove(self):
+        """Remove all registered hooks."""
+        for handle in self.handles:
+            handle.remove()
+        self.handles = []
+        print("Removed HeadWiseAttentionVTI hooks")
+
+
 def get_nested_attr(obj, attr_path):
     attrs = attr_path.split(".")
     for attr in attrs:

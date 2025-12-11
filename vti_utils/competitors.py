@@ -43,14 +43,14 @@ class CompetitorIntervention:
             return self.feature_quantization(output, **self.kwargs)
         return output
     
-    def register(self, vision_tower):
-        """Register the hook on vision tower module.
+    def register(self, module):
+        """Register the hook on the module.
         
         Args:
-            vision_tower: model.model.vision_tower (CLIPVisionTower)
+            module: The module to register the hook on
         """
-        self.handle = vision_tower.register_forward_hook(self.hook_fn)
-        print(f"Registered {self.method} intervention on vision tower")
+        self.handle = module.register_forward_hook(self.hook_fn)
+        print(f"Registered {self.method} intervention on {module.__class__.__name__}")
     
     def remove(self):
         """Remove the registered hook."""
@@ -62,7 +62,7 @@ class CompetitorIntervention:
     # --- Method Implementations ---
     
     @staticmethod
-    def dynamic_clipping(x, percentile=95):
+    def dynamic_clipping(x, percentile=95, mode="per-channel"):
         """Clip outlier feature values based on percentile.
         
         Addresses the ~15% unstable features mentioned in VTI paper
@@ -75,11 +75,50 @@ class CompetitorIntervention:
         Returns:
             Clipped tensor with same shape
         """
-        # Compute bounds along sequence dimension, per-channel
-        lower = torch.quantile(x, (100 - percentile) / 100.0, dim=1, keepdim=True)
-        upper = torch.quantile(x, percentile / 100.0, dim=1, keepdim=True)
-        return torch.clamp(x, min=lower, max=upper)
-    
+        # handle the case where x is a tuple
+        is_tuple = False
+        if isinstance(x, tuple):
+            is_tuple = True
+            x = x[0]
+
+        # handle the case where x is not float32
+        x_dtype = x.dtype
+        if x_dtype != torch.float32:
+            x = x.float()
+
+        # Compute bounds along the dimension specified by mode
+        if mode == "per-channel":  # every channel is clipped independently
+            lower = torch.quantile(x, (100 - percentile) / 100.0, dim=1, keepdim=True)
+            upper = torch.quantile(x, percentile / 100.0, dim=1, keepdim=True)
+        elif mode == "per-token":  # every token is clipped independently
+            lower = torch.quantile(x, (100 - percentile) / 100.0, dim=2, keepdim=True)
+            upper = torch.quantile(x, percentile / 100.0, dim=2, keepdim=True)
+        elif mode == "global":  # all tokens, all channels are clipped together
+            B, L, D = x.shape
+            x_cluster = x.reshape(B, -1)
+            lower = torch.quantile(x_cluster, (100 - percentile) / 100.0, dim=1, keepdim=True)
+            upper = torch.quantile(x_cluster, percentile / 100.0, dim=1, keepdim=True)
+            lower = lower.reshape(B, 1, 1)
+            upper = upper.reshape(B, 1, 1)
+        else:
+            raise ValueError(f"Invalid clipping mode: {mode}")
+
+        assert (upper > lower).all(), "Upper bound must be greater than lower bound"
+
+        x_clamped = torch.clamp(x, min=lower, max=upper)
+
+        # Count the number of entries that are different after clamping
+        different_entries = (x_clamped != x).sum()
+        print(f"Clipping {different_entries} entries out of {x.numel()}")
+
+        if x_dtype != torch.float32:
+            x_clamped = x_clamped.to(x_dtype)
+
+        if is_tuple:
+            x_clamped = (x_clamped,)
+
+        return x_clamped
+
     @staticmethod
     def spatial_smoothing(x, kernel_size=3, grid_size=24):
         """Apply spatial average pooling to smooth features.
@@ -98,6 +137,7 @@ class CompetitorIntervention:
         B, L, D = x.shape
         if L != grid_size * grid_size:
             # Skip if shape doesn't match expected grid
+            print("Warning: Spatial smoothing input shape does not match expected grid size")
             return x
         
         # Reshape to 2D spatial format: [B, L, D] -> [B, D, H, W]

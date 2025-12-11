@@ -17,7 +17,7 @@ from llava.mm_utils import tokenizer_image_token, get_model_name_from_path
 from PIL import Image
 from transformers import set_seed
 
-from vti_utils.utils import get_demos, obtain_textual_vti, obtain_visual_vti
+from vti_utils.utils import get_demos, obtain_textual_vti, obtain_visual_vti, obtain_textual_vti_fix, obtain_visual_vti_fix
 from vti_utils.llm_layers import add_vti_layers, remove_vti_layers
 
 from datasets import load_dataset
@@ -50,8 +50,12 @@ def eval_model(args):
             visual_direction = torch.load(args.visual_direction_path)
         else:
             print(f"Computing visual direction")
+            if args.use_fix_vti:
+                obtain_visual = obtain_visual_vti_fix
+            else:
+                obtain_visual = obtain_visual_vti
             time_start = time.time()
-            vti_vision, _ = obtain_visual_vti(
+            vti_vision, _ = obtain_visual(
                 model, input_images, rank=1
                 )  # shape: (n_layers, n_tokens, feat_dim)
             time_end = time.time()
@@ -70,8 +74,12 @@ def eval_model(args):
             textual_direction = torch.load(args.textual_direction_path)
         else:
             print(f"Computing textual direction")
+            if args.use_fix_vti: 
+                obtain_textual = obtain_textual_vti_fix
+            else:
+                obtain_textual = obtain_textual_vti
             time_start = time.time()
-            vti_text, _ = obtain_textual_vti(
+            vti_text, _ = obtain_textual(
                 model, input_ids, input_images, rank=1
                 )
             time_end = time.time()
@@ -91,14 +99,32 @@ def eval_model(args):
         
         kwargs = {}
         if args.competitor == 'clipping':
-            kwargs = {'percentile': args.clip_percentile}
+            kwargs = {'percentile': args.clip_percentile, 'mode': args.clip_mode}
         elif args.competitor == 'smoothing':
-            kwargs = {'kernel_size': args.smooth_kernel, 'grid_size': 24}
+            kwargs = {'kernel_size': args.smooth_kernel, 'grid_size': args.grid_size}
         elif args.competitor == 'quantization':
             kwargs = {'scale': args.quant_scale}
         
         competitor_hook = CompetitorIntervention(args.competitor, **kwargs)
-        competitor_hook.register(model.model.vision_tower)
+        if args.competitor_position == 'all':  # register on all layers
+            for layer in model.model.vision_tower.vision_tower.vision_model.encoder.layers:
+                competitor_hook.register(layer)
+        elif args.competitor_position == 'last':  # register on the last layer
+            competitor_hook.register(model.model.vision_tower.vision_tower.vision_model.encoder.layers[-1])
+        elif args.competitor_position == 'encoder':  # register on the encoder layer
+            competitor_hook.register(model.model.vision_tower)
+        else:
+            raise ValueError(f"Invalid competitor position: {args.competitor_position}")
+
+    # Register head-wise attention VTI hook
+    head_wise_attention_vti_hook = None
+    if args.head_wise_alpha_image != 0:
+        from vti_utils.utils import obtain_attention_vti_per_head
+        from vti_utils.llm_layers import HeadWiseAttentionVTI
+
+        vti_directions, _ = obtain_attention_vti_per_head(model, input_images, rank=1)
+        head_wise_attention_vti_hook = HeadWiseAttentionVTI(vti_directions, lam=args.head_wise_alpha_image)
+        head_wise_attention_vti_hook.register(model)
 
     # Run MMHal benchmark
     print(f"Running MMHal benchmark\n")
@@ -171,6 +197,8 @@ def eval_model(args):
         remove_vti_layers(model)
     if competitor_hook:
         competitor_hook.remove()
+    if head_wise_attention_vti_hook:
+        head_wise_attention_vti_hook.remove()
 
     print(f"Finished evaluation, results saved to {answers_file}")
 
@@ -196,17 +224,36 @@ if __name__ == "__main__":
     parser.add_argument("--visual_direction_path", type=str, required=True)
     parser.add_argument("--textual_direction_path", type=str, required=True)
 
+    # Wether use fix version of VTI
+    parser.add_argument("--use_fix_vti", action='store_true',
+                        help="Use fix version of VTI")
+
     # Competitor intervention arguments
     parser.add_argument("--competitor", type=str, default=None,
                         choices=['clipping', 'smoothing', 'quantization'],
                         help="Competitor robustness method to apply on vision features")
+    parser.add_argument("--competitor_position", type=str, default="all",
+                        choices=['all', 'last', 'encoder'],
+                        help="Position of the competitor intervention")
+    # clipping
     parser.add_argument("--clip_percentile", type=float, default=95,
                         help="Percentile for dynamic clipping (e.g., 95 means clip to 5-95%%)")
+    parser.add_argument("--clip_mode", type=str, default="per-channel",
+                        choices=['per-channel', 'per-token', 'global'],
+                        help="Clipping mode for dynamic clipping")
+    # smoothing
     parser.add_argument("--smooth_kernel", type=int, default=3,
                         help="Kernel size for spatial smoothing (odd number)")
+    parser.add_argument("--grid_size", type=int, default=24,
+                        help="Grid size for spatial smoothing")
+    # quantization
     parser.add_argument("--quant_scale", type=float, default=10.0,
                         help="Scale factor for feature quantization")
-    
+
+    # Head-wise attention VTI arguments
+    parser.add_argument("--head_wise_alpha_image", type=float, default=0.0,
+                        help="Alpha for head-wise attention VTI on image")
+
     args = parser.parse_args()
     set_seed(args.seed)
     eval_model(args)

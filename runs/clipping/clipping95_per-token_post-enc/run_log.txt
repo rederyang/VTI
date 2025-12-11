@@ -1,0 +1,110 @@
+/workspace/miniconda/envs/vti/lib/python3.9/site-packages/huggingface_hub/file_download.py:942: FutureWarning: `resume_download` is deprecated and will be removed in version 1.0.0. Downloads always resume when possible. If you want to force a new download, use `force_download=True`.
+  warnings.warn(
+You are using a model of type llava to instantiate a model of type llava_llama. This is not supported for all configurations of models and can yield errors.
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]/workspace/miniconda/envs/vti/lib/python3.9/site-packages/torch/_utils.py:831: UserWarning: TypedStorage is deprecated. It will be removed in the future and UntypedStorage will be the only storage class. This should only matter to you if you are using storages directly.  To access UntypedStorage directly, use tensor.untyped_storage() instead of tensor.storage()
+  return self.fget.__get__(instance, owner)()
+Loading checkpoint shards:  50%|█████     | 1/2 [00:34<00:34, 34.96s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:46<00:00, 21.17s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:46<00:00, 23.24s/it]
+Obtaining direction
+
+Registered clipping intervention on CLIPVisionTower
+Running MMHal benchmark
+
+  0%|          | 0/96 [00:00<?, ?it/s]Clipping 59812 entries out of 589824
+  1%|          | 1/96 [00:05<07:59,  5.05s/it]Clipping 59815 entries out of 589824
+  2%|▏         | 2/96 [00:06<04:58,  3.18s/it]Clipping 59819 entries out of 589824
+  3%|▎         | 3/96 [00:08<03:52,  2.50s/it]Clipping 59841 entries out of 589824
+  4%|▍         | 4/96 [00:10<03:15,  2.12s/it]Clipping 59835 entries out of 589824
+  5%|▌         | 5/96 [00:12<03:05,  2.03s/it]Clipping 59827 entries out of 589824
+  6%|▋         | 6/96 [00:13<02:58,  1.98s/it]Clipping 59845 entries out of 589824
+  7%|▋         | 7/96 [00:22<05:55,  3.99s/it]Clipping 59831 entries out of 589824
+  8%|▊         | 8/96 [00:23<04:48,  3.28s/it]Clipping 59842 entries out of 589824
+  9%|▉         | 9/96 [00:25<03:55,  2.71s/it]Clipping 59845 entries out of 589824
+ 10%|█         | 10/96 [00:26<03:19,  2.32s/it]Clipping 59804 entries out of 589824
+ 11%|█▏        | 11/96 [00:28<02:53,  2.04s/it]Clipping 59820 entries out of 589824
+ 12%|█▎        | 12/96 [00:29<02:41,  1.93s/it]Clipping 59835 entries out of 589824
+ 14%|█▎        | 13/96 [00:31<02:32,  1.83s/it]Clipping 59847 entries out of 589824
+ 15%|█▍        | 14/96 [00:32<02:23,  1.75s/it]Clipping 59826 entries out of 589824
+ 16%|█▌        | 15/96 [00:39<04:17,  3.18s/it]Clipping 59831 entries out of 589824
+ 17%|█▋        | 16/96 [00:40<03:32,  2.66s/it]Clipping 59817 entries out of 589824
+ 18%|█▊        | 17/96 [00:43<03:17,  2.50s/it]Clipping 59846 entries out of 589824
+ 19%|█▉        | 18/96 [00:44<02:57,  2.28s/it]Clipping 59831 entries out of 589824
+ 20%|█▉        | 19/96 [00:46<02:43,  2.12s/it]Clipping 59819 entries out of 589824
+ 21%|██        | 20/96 [00:48<02:28,  1.95s/it]Clipping 59836 entries out of 589824
+ 22%|██▏       | 21/96 [00:49<02:18,  1.84s/it]Clipping 59836 entries out of 589824
+ 23%|██▎       | 22/96 [00:51<02:15,  1.83s/it]Clipping 59845 entries out of 589824
+ 24%|██▍       | 23/96 [00:58<04:14,  3.49s/it]Clipping 59838 entries out of 589824
+ 25%|██▌       | 24/96 [01:00<03:29,  2.91s/it]Clipping 59841 entries out of 589824
+ 26%|██▌       | 25/96 [01:01<02:57,  2.50s/it]Clipping 59820 entries out of 589824
+ 27%|██▋       | 26/96 [01:03<02:38,  2.27s/it]Clipping 59839 entries out of 589824
+ 28%|██▊       | 27/96 [01:04<02:16,  1.98s/it]Clipping 59830 entries out of 589824
+ 29%|██▉       | 28/96 [01:07<02:32,  2.24s/it]Clipping 59844 entries out of 589824
+ 30%|███       | 29/96 [01:09<02:17,  2.05s/it]Clipping 59828 entries out of 589824
+ 31%|███▏      | 30/96 [01:11<02:21,  2.15s/it]Clipping 59825 entries out of 589824
+ 32%|███▏      | 31/96 [01:19<04:09,  3.83s/it]Clipping 59818 entries out of 589824
+ 33%|███▎      | 32/96 [01:21<03:30,  3.28s/it]Clipping 59838 entries out of 589824
+ 34%|███▍      | 33/96 [01:23<02:59,  2.84s/it]Clipping 59831 entries out of 589824
+ 35%|███▌      | 34/96 [01:25<02:35,  2.50s/it]Clipping 59836 entries out of 589824
+ 36%|███▋      | 35/96 [01:30<03:21,  3.31s/it]Clipping 59833 entries out of 589824
+ 38%|███▊      | 36/96 [01:32<02:52,  2.87s/it]Clipping 59840 entries out of 589824
+ 39%|███▊      | 37/96 [01:33<02:30,  2.55s/it]Clipping 59828 entries out of 589824
+ 40%|███▉      | 38/96 [01:36<02:25,  2.51s/it]Clipping 59846 entries out of 589824
+ 41%|████      | 39/96 [01:44<04:05,  4.31s/it]Clipping 59826 entries out of 589824
+ 42%|████▏     | 40/96 [01:46<03:19,  3.56s/it]Clipping 59843 entries out of 589824
+ 43%|████▎     | 41/96 [01:48<02:45,  3.01s/it]Clipping 59820 entries out of 589824
+ 44%|████▍     | 42/96 [01:50<02:34,  2.85s/it]Clipping 59832 entries out of 589824
+ 45%|████▍     | 43/96 [01:55<03:05,  3.50s/it]Clipping 59824 entries out of 589824
+ 46%|████▌     | 44/96 [01:57<02:29,  2.87s/it]Clipping 59838 entries out of 589824
+ 47%|████▋     | 45/96 [01:58<02:01,  2.38s/it]Clipping 59823 entries out of 589824
+ 48%|████▊     | 46/96 [02:00<01:46,  2.13s/it]Clipping 59837 entries out of 589824
+ 49%|████▉     | 47/96 [02:07<02:56,  3.61s/it]Clipping 59838 entries out of 589824
+ 50%|█████     | 48/96 [02:09<02:28,  3.09s/it]Clipping 59824 entries out of 589824
+ 51%|█████     | 49/96 [02:10<01:58,  2.53s/it]Clipping 59829 entries out of 589824
+ 52%|█████▏    | 50/96 [02:11<01:42,  2.22s/it]Clipping 59835 entries out of 589824
+ 53%|█████▎    | 51/96 [02:17<02:24,  3.21s/it]Clipping 59842 entries out of 589824
+ 54%|█████▍    | 52/96 [02:18<01:54,  2.59s/it]Clipping 59828 entries out of 589824
+ 55%|█████▌    | 53/96 [02:20<01:43,  2.40s/it]Clipping 59842 entries out of 589824
+ 56%|█████▋    | 54/96 [02:21<01:25,  2.04s/it]Clipping 59838 entries out of 589824
+ 57%|█████▋    | 55/96 [02:30<02:47,  4.08s/it]Clipping 59831 entries out of 589824
+ 58%|█████▊    | 56/96 [02:33<02:33,  3.84s/it]Clipping 59837 entries out of 589824
+ 59%|█████▉    | 57/96 [02:35<02:10,  3.35s/it]Clipping 59837 entries out of 589824
+ 60%|██████    | 58/96 [02:37<01:48,  2.87s/it]Clipping 59824 entries out of 589824
+ 61%|██████▏   | 59/96 [02:44<02:34,  4.18s/it]Clipping 59833 entries out of 589824
+ 62%|██████▎   | 60/96 [02:46<01:58,  3.30s/it]Clipping 59845 entries out of 589824
+ 64%|██████▎   | 61/96 [02:48<01:43,  2.95s/it]Clipping 59833 entries out of 589824
+ 65%|██████▍   | 62/96 [02:49<01:27,  2.57s/it]Clipping 59838 entries out of 589824
+ 66%|██████▌   | 63/96 [02:57<02:17,  4.17s/it]Clipping 59825 entries out of 589824
+ 67%|██████▋   | 64/96 [03:00<01:55,  3.62s/it]Clipping 59839 entries out of 589824
+ 68%|██████▊   | 65/96 [03:01<01:29,  2.88s/it]Clipping 59839 entries out of 589824
+ 69%|██████▉   | 66/96 [03:03<01:19,  2.65s/it]Clipping 59825 entries out of 589824
+ 70%|██████▉   | 67/96 [03:04<01:06,  2.28s/it]Clipping 59843 entries out of 589824
+ 71%|███████   | 68/96 [03:06<00:54,  1.96s/it]Clipping 59831 entries out of 589824
+ 72%|███████▏  | 69/96 [03:07<00:51,  1.90s/it]Clipping 59826 entries out of 589824
+ 73%|███████▎  | 70/96 [03:09<00:46,  1.80s/it]Clipping 59832 entries out of 589824
+ 74%|███████▍  | 71/96 [03:15<01:16,  3.05s/it]Clipping 59833 entries out of 589824
+ 75%|███████▌  | 72/96 [03:16<01:02,  2.60s/it]Clipping 59833 entries out of 589824
+ 76%|███████▌  | 73/96 [03:18<00:54,  2.37s/it]Clipping 59816 entries out of 589824
+ 77%|███████▋  | 74/96 [03:20<00:45,  2.07s/it]Clipping 59835 entries out of 589824
+ 78%|███████▊  | 75/96 [03:21<00:41,  1.98s/it]Clipping 59815 entries out of 589824
+ 79%|███████▉  | 76/96 [03:23<00:34,  1.74s/it]Clipping 59853 entries out of 589824
+ 80%|████████  | 77/96 [03:24<00:31,  1.65s/it]Clipping 59823 entries out of 589824
+ 81%|████████▏ | 78/96 [03:26<00:30,  1.67s/it]Clipping 59828 entries out of 589824
+ 82%|████████▏ | 79/96 [03:33<00:56,  3.35s/it]Clipping 59843 entries out of 589824
+ 83%|████████▎ | 80/96 [03:35<00:46,  2.92s/it]Clipping 59825 entries out of 589824
+ 84%|████████▍ | 81/96 [03:36<00:35,  2.37s/it]Clipping 59836 entries out of 589824
+ 85%|████████▌ | 82/96 [03:37<00:29,  2.07s/it]Clipping 59833 entries out of 589824
+ 86%|████████▋ | 83/96 [03:39<00:24,  1.87s/it]Clipping 59830 entries out of 589824
+ 88%|████████▊ | 84/96 [03:40<00:21,  1.77s/it]Clipping 59819 entries out of 589824
+ 89%|████████▊ | 85/96 [03:42<00:19,  1.77s/it]Clipping 59834 entries out of 589824
+ 90%|████████▉ | 86/96 [03:44<00:18,  1.82s/it]Clipping 59818 entries out of 589824
+ 91%|█████████ | 87/96 [03:50<00:26,  2.92s/it]Clipping 59812 entries out of 589824
+ 92%|█████████▏| 88/96 [03:51<00:20,  2.58s/it]Clipping 59830 entries out of 589824
+ 93%|█████████▎| 89/96 [03:53<00:15,  2.18s/it]Clipping 59818 entries out of 589824
+ 94%|█████████▍| 90/96 [03:54<00:11,  1.95s/it]Clipping 59828 entries out of 589824
+ 95%|█████████▍| 91/96 [03:55<00:09,  1.82s/it]Clipping 59834 entries out of 589824
+ 96%|█████████▌| 92/96 [03:57<00:06,  1.68s/it]Clipping 59832 entries out of 589824
+ 97%|█████████▋| 93/96 [03:59<00:05,  1.68s/it]Clipping 59827 entries out of 589824
+ 98%|█████████▊| 94/96 [04:00<00:03,  1.56s/it]Clipping 59838 entries out of 589824
+ 99%|█████████▉| 95/96 [04:07<00:03,  3.25s/it]Clipping 59833 entries out of 589824
+100%|██████████| 96/96 [04:09<00:00,  2.79s/it]100%|██████████| 96/96 [04:09<00:00,  2.60s/it]
+Removed clipping intervention
+Finished evaluation, results saved to /workspace/VTI/runs/clipping95_per-token_post-enc/MMHal_answer.jsonl

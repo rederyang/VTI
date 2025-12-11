@@ -221,13 +221,31 @@ def obtain_textual_vti(model, inputs, image_tensor, rank=1):
         hidden_states_all.append(h)
         neg_all.append(hidden_states[demonstration_id][0].view(-1))
         pos_all.append(hidden_states[demonstration_id][1].view(-1))
-    fit_data = torch.stack(hidden_states_all)
+    fit_data = torch.stack(hidden_states_all)  # (n_demos, n_layers * feat_dim)
     pca = PCA(n_components=rank).to(fit_data.device).fit(fit_data.float())
     eval_data =  pca.transform(fit_data.float())
     h_pca = pca.inverse_transform(eval_data) 
 
     direction = (pca.components_.sum(dim=1,keepdim=True) + pca.mean_).mean(0).view(hidden_states[demonstration_id][0].size(0), hidden_states[demonstration_id][0].size(1))#h_pca.mean(0).view(hidden_states[demonstration_id][0].size(0), hidden_states[demonstration_id][0].size(1))
     reading_direction = fit_data.mean(0).view(hidden_states[demonstration_id][0].size(0), hidden_states[demonstration_id][0].size(1))
+    return direction, reading_direction
+
+def obtain_textual_vti_fix(model, inputs, image_tensor, rank=1):
+    print("Using fix version of textual direction")
+    hidden_states = get_hiddenstates(model, inputs, image_tensor)
+
+    n_layers, feat_dim = hidden_states[0][0].shape
+
+    hidden_states_all = []
+    num_demonstration = len(hidden_states)
+    for demonstration_id in range(num_demonstration):
+        h = hidden_states[demonstration_id][1] - hidden_states[demonstration_id][0]
+        hidden_states_all.append(h)
+    fit_data = torch.stack(hidden_states_all, dim=1)  # (n_layers, n_demos, feat_dim)
+    pca = PCA(n_components=rank).to(fit_data.device).fit(fit_data.float())
+
+    direction = (pca.components_.sum(dim=1,keepdim=True) + pca.mean_).mean(1).view(n_layers, feat_dim)
+    reading_direction = fit_data.mean(1).view(n_layers, feat_dim)
     return direction, reading_direction
 
 # Visual VTI 相关
@@ -315,14 +333,199 @@ def obtain_visual_vti(model, image_tensor, rank=1, model_is_llaval=True):
     n_layers, n_tokens, feat_dim = hidden_states[0][0].shape
     num_demonstration = len(hidden_states)
 
-    
     hidden_states_all = []
     for demonstration_id in range(num_demonstration):
         h = hidden_states[demonstration_id][0].reshape(n_tokens,-1) - hidden_states[demonstration_id][1].reshape(n_tokens,-1)
         hidden_states_all.append(h)
 
-    fit_data = torch.stack(hidden_states_all,dim=1)[:] # n_token (no CLS token) x n_demos x D
+    fit_data = torch.stack(hidden_states_all,dim=1)[:]  # (n_tokens, n_demos, n_layers * feat_dim)
     pca = PCA(n_components=rank).to(fit_data.device).fit(fit_data.float())
     direction = (pca.components_.sum(dim=1,keepdim=True) + pca.mean_).mean(1).view(n_layers, n_tokens, -1)
     reading_direction = fit_data.mean(1).view(n_layers, n_tokens, -1)
+    return direction, reading_direction
+
+def obtain_visual_vti_fix(model, image_tensor, rank=1, model_is_llaval=True):
+    print("Using fix version of visual direction")
+    hidden_states = get_visual_hiddenstates(model, image_tensor, model_is_llaval = model_is_llaval)
+    n_layers, n_tokens, feat_dim = hidden_states[0][0].shape
+    num_demonstration = len(hidden_states)
+
+    hidden_states_all = []
+    for demonstration_id in range(num_demonstration):
+        h = hidden_states[demonstration_id][0] - hidden_states[demonstration_id][1]
+        hidden_states_all.append(h)  # (n_layers, n_tokens, feat_dim)
+
+    fit_data = torch.stack(hidden_states_all,dim=2)[:]  # (n_layers, n_tokens, n_demos, feat_dim)
+    fit_data = fit_data.reshape(n_layers * n_tokens, num_demonstration, feat_dim)
+    pca = PCA(n_components=rank).to(fit_data.device).fit(fit_data.float())
+    direction = (pca.components_.sum(dim=1,keepdim=True) + pca.mean_).mean(1).view(n_layers, n_tokens, -1)
+    reading_direction = fit_data.mean(1).view(n_layers, n_tokens, -1)
+    return direction, reading_direction
+
+# Head-wise Attention VTI 相关
+
+def get_attention_hiddenstates(model, image_tensor):
+    """
+    Extract per-head attention outputs from vision encoder.
+    Uses forward hook on out_proj to capture the input (which is the per-head attention output).
+    
+    Args:
+        model: LLaVA model
+        image_tensor: list of [masked_images_list, original_image] pairs
+        
+    Returns:
+        h_all: list of tuples, each tuple contains (masked_attn_outputs, original_attn_outputs)
+               where each output is tensor of shape (n_layers, n_heads, n_tokens, head_dim)
+    """
+    try:
+        vision_model = model.model.vision_tower.vision_tower.vision_model
+    except:
+        vision_model = model.vision_model
+    
+    # Get model config
+    encoder_layers = vision_model.encoder.layers
+    n_layers = len(encoder_layers)
+    n_heads = encoder_layers[0].self_attn.num_heads
+    head_dim = encoder_layers[0].self_attn.head_dim
+    
+    h_all = []
+    
+    with torch.no_grad():
+        for example_id in range(len(image_tensor)):
+            embeddings_for_all_styles = []
+            
+            for style_id in range(len(image_tensor[example_id])):
+                # Storage for per-head attention outputs from each layer
+                attn_outputs_per_layer = []
+                hooks = []
+                
+                def make_hook(storage):
+                    def hook_fn(module, args, kwargs, output):
+                        # CLIPAttention output: (attn_output, attn_weights) or just attn_output
+                        # attn_output shape: (batch, seq_len, hidden_dim)
+                        # We need to reshape to (batch, seq_len, n_heads, head_dim)
+                        if isinstance(output, tuple):
+                            attn_output = output[0]
+                        else:
+                            attn_output = output
+                        batch, seq_len, hidden_dim = attn_output.shape
+                        # Reshape to per-head format
+                        attn_per_head = attn_output.view(batch, seq_len, n_heads, head_dim)
+                        storage.append(attn_per_head.detach().cpu())
+                    return hook_fn
+                
+                # Register hooks on each layer's self_attn
+                for layer in encoder_layers:
+                    storage = []
+                    attn_outputs_per_layer.append(storage)
+                    hook = layer.self_attn.register_forward_hook(make_hook(storage), with_kwargs=True)
+                    hooks.append(hook)
+                
+                # Handle masked images (multiple trials) or single image
+                if isinstance(image_tensor[example_id][style_id], list):
+                    # Multiple masked images - average their outputs
+                    all_trials_outputs = []
+                    for image_tensor_ in image_tensor[example_id][style_id]:
+                        # Clear storage for new forward pass
+                        for storage in attn_outputs_per_layer:
+                            storage.clear()
+                        
+                        _ = vision_model(
+                            image_tensor_.unsqueeze(0).half().cuda(),
+                            output_hidden_states=True,
+                            return_dict=True
+                        )
+                        
+                        # Collect outputs from this trial: (n_layers, n_heads, n_tokens, head_dim)
+                        trial_output = torch.stack([s[0].squeeze(0).transpose(0, 1) for s in attn_outputs_per_layer], dim=0)
+                        all_trials_outputs.append(trial_output)
+                    
+                    # Average across trials
+                    embedding_token = torch.stack(all_trials_outputs, dim=0).mean(dim=0)
+                else:
+                    # Single image
+                    for storage in attn_outputs_per_layer:
+                        storage.clear()
+                    
+                    _ = vision_model(
+                        image_tensor[example_id][style_id].unsqueeze(0).half().cuda(),
+                        output_hidden_states=True,
+                        return_dict=True
+                    )
+                    
+                    # Collect: (n_layers, n_heads, n_tokens, head_dim)
+                    embedding_token = torch.stack([s[0].squeeze(0).transpose(0, 1) for s in attn_outputs_per_layer], dim=0)
+                
+                # Remove hooks
+                for hook in hooks:
+                    hook.remove()
+                
+                embeddings_for_all_styles.append(embedding_token)
+            
+            h_all.append(tuple(embeddings_for_all_styles))
+    
+    return h_all
+
+def obtain_attention_vti_per_head(model, image_tensor, rank=1):
+    """
+    Compute per-head VTI directions from attention outputs.
+    
+    Args:
+        model: LLaVA model
+        image_tensor: list of [masked_images_list, original_image] pairs
+        rank: number of PCA components
+        
+    Returns:
+        direction: tensor of shape (n_layers, n_heads, n_tokens, head_dim)
+        reading_direction: tensor of shape (n_layers, n_heads, n_tokens, head_dim)
+    """
+    hidden_states = get_attention_hiddenstates(model, image_tensor)
+    # hidden_states[i][j] has shape (n_layers, n_heads, n_tokens, head_dim)
+    
+    n_layers, n_heads, n_tokens, head_dim = hidden_states[0][0].shape
+    num_demonstration = len(hidden_states)
+    
+    # Compute difference: masked - original for each demo
+    hidden_states_all = []
+    for demonstration_id in range(num_demonstration):
+        # h: (n_layers, n_heads, n_tokens, head_dim)
+        h = hidden_states[demonstration_id][0] - hidden_states[demonstration_id][1]
+        hidden_states_all.append(h)
+    
+    # Stack demos: (n_demos, n_layers, n_heads, n_tokens, head_dim)
+    fit_data = torch.stack(hidden_states_all, dim=0)
+    
+    # Reshape for per-head PCA: (n_layers, n_heads, n_tokens, n_demos, head_dim)
+    fit_data = fit_data.permute(1, 2, 3, 0, 4)
+    
+    # Apply PCA per layer (with n_heads * n_tokens as batch dimension)
+    # Output shape: (n_layers, n_heads, n_tokens, head_dim)
+    directions = []
+    reading_directions = []
+    
+    for layer_idx in range(n_layers):
+        # data: (n_heads, n_tokens, n_demos, head_dim)
+        # Reshape to (n_heads * n_tokens, n_demos, head_dim) for batch PCA
+        data = fit_data[layer_idx].reshape(n_heads * n_tokens, num_demonstration, head_dim)
+        
+        # PCA: batch=n_heads*n_tokens, n_samples=n_demos, features=head_dim
+        pca = PCA(n_components=rank).to(data.device).fit(data.float())
+        
+        # pca.components_: (n_heads * n_tokens, rank, head_dim)
+        # pca.mean_: (n_heads * n_tokens, 1, head_dim)
+        direction_layer = (pca.components_.sum(dim=1, keepdim=True) + pca.mean_).squeeze(1)
+        # direction_layer: (n_heads * n_tokens, head_dim)
+        
+        # Reshape back to (n_heads, n_tokens, head_dim)
+        direction_layer = direction_layer.view(n_heads, n_tokens, head_dim)
+        
+        # Reading direction: mean across demos
+        reading_direction_layer = data.mean(dim=1).view(n_heads, n_tokens, head_dim)
+        
+        directions.append(direction_layer)
+        reading_directions.append(reading_direction_layer)
+    
+    direction = torch.stack(directions, dim=0)  # (n_layers, n_heads, n_tokens, head_dim)
+    reading_direction = torch.stack(reading_directions, dim=0)
+    
     return direction, reading_direction

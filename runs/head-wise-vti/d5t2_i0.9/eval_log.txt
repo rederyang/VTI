@@ -1,0 +1,13 @@
+current iter: 0
+current iter: 10
+current iter: 20
+current iter: 30
+current iter: 40
+current iter: 50
+current iter: 60
+current iter: 70
+current iter: 80
+current iter: 90
+Average score: 1.27083
+Hallucination rate: 0.83333
+Average score for each question type: 1.75,0.67,1.25,1.58,2.0,1.08,0.08,1.75

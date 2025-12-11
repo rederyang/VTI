@@ -1,6 +1,6 @@
 # download COCO dataset to data dir
-wget http://images.cocodataset.org/zips/train2014.zip -P path/to/data/dir
-wget http://images.cocodataset.org/zips/val2014.zip -P path/to/data/dir
+wget http://images.cocodataset.org/zips/train2014.zip -P /workspace/data/COCO2014
+wget http://images.cocodataset.org/zips/val2014.zip -P /workspace/data/COCO2014
 
 # prepare env
 conda create -yn vti python=3.9
